@@ -1,0 +1,200 @@
+# Directory Structure
+
+```
+EventMatcher/
+|-- backend/                
+|   |-- Controllers/        
+|       |-- EventController.cs
+|   |-- Models/            
+|       |-- Event.cs
+|   |-- Services/          
+|       |-- EventService.cs
+|-- aws/                    
+|   |-- MatchEventHandler.cs
+|   |-- NotifyEventHandler.cs
+|-- frontend/               
+|   |-- src/
+|       |-- App.js          
+|       |-- components/     
+|       |-- api/            
+|-- README.md               
+```
+
+---
+
+# Core Files
+
+## Backend: .NET
+
+### Models/Event.cs
+```csharp
+using System;
+
+namespace EventMatcher.Models
+{
+    public class Event
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public DateTime Date { get; set; }
+        public string Location { get; set; }
+    }
+}
+```
+
+### Controllers/EventController.cs
+```csharp
+using Microsoft.AspNetCore.Mvc;
+using EventMatcher.Models;
+using EventMatcher.Services;
+
+namespace EventMatcher.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class EventController : ControllerBase
+    {
+        private readonly EventService _eventService;
+
+        public EventController(EventService eventService)
+        {
+            _eventService = eventService;
+        }
+
+        [HttpGet]
+        public IActionResult GetEvents()
+        {
+            var events = _eventService.GetAllEvents();
+            return Ok(events);
+        }
+
+        [HttpPost]
+        public IActionResult CreateEvent([FromBody] Event newEvent)
+        {
+            var createdEvent = _eventService.CreateEvent(newEvent);
+            return CreatedAtAction(nameof(GetEvents), new { id = createdEvent.Id }, createdEvent);
+        }
+    }
+}
+```
+
+### Services/EventService.cs
+```csharp
+using System;
+using System.Collections.Generic;
+using EventMatcher.Models;
+
+namespace EventMatcher.Services
+{
+    public class EventService
+    {
+        private readonly List<Event> _events = new();
+
+        public IEnumerable<Event> GetAllEvents() => _events;
+
+        public Event CreateEvent(Event newEvent)
+        {
+            newEvent.Id = Guid.NewGuid();
+            _events.Add(newEvent);
+            return newEvent;
+        }
+    }
+}
+```
+
+---
+
+## AWS Lambda Functions
+
+### MatchEventHandler.cs
+```csharp
+using System;
+using System.Collections.Generic;
+using Amazon.Lambda.Core;
+
+[assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
+
+namespace EventMatcher.Lambda
+{
+    public class MatchEventHandler
+    {
+        public IEnumerable<string> HandleRequest(string preferences)
+        {
+            // Simulated event matching logic
+            return new List<string> { "Music Festival", "Tech Meetup", "Art Exhibition" };
+        }
+    }
+}
+```
+
+### NotifyEventHandler.cs
+```csharp
+using System;
+using Amazon.Lambda.Core;
+using Amazon.SimpleNotificationService;
+using Amazon.SimpleNotificationService.Model;
+
+[assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
+
+namespace EventMatcher.Lambda
+{
+    public class NotifyEventHandler
+    {
+        private readonly IAmazonSimpleNotificationService _snsClient;
+
+        public NotifyEventHandler() => _snsClient = new AmazonSimpleNotificationServiceClient();
+
+        public async void HandleRequest(string message)
+        {
+            var request = new PublishRequest
+            {
+                Message = message,
+                TopicArn = "your-sns-topic-arn"
+            };
+            await _snsClient.PublishAsync(request);
+        }
+    }
+}
+```
+
+---
+
+## Frontend: React
+
+### App.js
+```javascript
+import React, { useState, useEffect } from 'react';
+import './App.css';
+
+const App = () => {
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/Event')
+      .then((response) => response.json())
+      .then((data) => setEvents(data));
+  }, []);
+
+  return (
+    <div className="App">
+      <h1>Event Matcher</h1>
+      <ul>
+        {events.map((event) => (
+          <li key={event.id}>
+            <h2>{event.name}</h2>
+            <p>{event.description}</p>
+            <p>{event.date}</p>
+            <p>{event.location}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default App;
+```
+
+---
+
