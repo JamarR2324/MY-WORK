@@ -1,0 +1,196 @@
+### TaskMate Full-Stack Project - Jamar Robinson Jr
+
+# Directory Structure
+
+```
+TaskMate/
+|-- backend/                
+|   |-- taskmate/          
+|   |   |-- settings.py    
+|   |   |-- urls.py         
+|   |-- tasks/              
+|       |-- models.py       
+|       |-- views.py        
+|       |-- serializers.py  
+|       |-- urls.py         
+|
+|-- frontend/               
+|   |-- src/
+|       |-- App.js          
+|       |-- components/     
+|       |-- api/            
+|
+|-- java/                   
+|   |-- TaskNotifier.java   
+|
+|-- db/                     
+|   |-- init.sql            
+|
+|-- docker-compose.yml      
+|-- README.md               
+```
+
+---
+
+# Core Files
+
+## Backend: Django
+
+### settings.py
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'taskmate_db',
+        'USER': 'your_username',
+        'PASSWORD': 'your_password',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
+}
+```
+
+### models.py
+```python
+from django.db import models
+
+class Task(models.Model):
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    completed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.title
+```
+
+### views.py
+```python
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Task
+from .serializers import TaskSerializer
+
+class TaskList(APIView):
+    def get(self, request):
+        tasks = Task.objects.all()
+        serializer = TaskSerializer(tasks, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = TaskSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+```
+
+### serializers.py
+```python
+from rest_framework import serializers
+from .models import Task
+
+class TaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = '__all__'
+```
+
+---
+
+## Frontend: React
+
+### App.js
+```javascript
+import React, { useEffect, useState } from 'react';
+import './App.css';
+
+const App = () => {
+  const [tasks, setTasks] = useState([]);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/tasks/')
+      .then(response => response.json())
+      .then(data => setTasks(data));
+  }, []);
+
+  return (
+    <div className="App">
+      <h1>TaskMate</h1>
+      <ul>
+        {tasks.map(task => (
+          <li key={task.id}>{task.title}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default App;
+```
+
+---
+
+## Java: Background Task Processor
+
+### TaskNotifier.java
+```java
+public class TaskNotifier {
+    public static void main(String[] args) {
+        System.out.println("Processing background tasks...");
+        // Simulate background processing
+    }
+}
+```
+
+---
+
+## Database: init.sql
+```sql
+CREATE DATABASE taskmate_db;
+CREATE TABLE tasks (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255),
+    description TEXT,
+    completed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+## Docker Configuration: docker-compose.yml
+```yaml
+version: '3.8'
+services:
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: your_username
+      POSTGRES_PASSWORD: your_password
+      POSTGRES_DB: taskmate_db
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    command: npm start
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+```
+
+---
+
